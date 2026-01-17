@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Game Prediction Dashboard</title>
+</head>
+<body>
+<body>
+<h1>Game Prediction Dashboard</h1>
+
+<h2>Filters</h2>
+<label for="league">League:</label>
+<select id="league">
+    <option value="">All</option>
+    <option value="EPL">EPL</option>
+    <option value="La Liga">La Liga</option>
+    <option value="Serie A">Serie A</option>
+</select>
+
+<label for="date">Date:</label>
+<input type="date" id="match-date">
+
+<button onclick="applyFilters()">Apply</button>
+
+<h2>Today's Matches & Best Picks</h2>
+<table border="1" id="matches-table">
+    <thead>
+        <tr>
+            <th>Home Team</th>
+            <th>Away Team</th>
+            <th>GG Probability</th>
+            <th>Over 2.5 Probability</th>
+            <th>Top Score Pick</th>
+            <th>EV</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<h2>Accuracy Charts</h2>
+<canvas id="accuracyChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+async function loadDashboard() {
+    // Fetch API data
+    const predRes = await fetch('/api/today-predictions/');
+    const predictions = await predRes.json();
+
+    const bestRes = await fetch('/api/best-picks/');
+    const bestPicks = await bestRes.json();
+
+    const accRes = await fetch('/api/accuracy/');
+    const accuracy = await accRes.json();
+
+    // Fill table
+    const tbody = document.querySelector('#matches-table tbody');
+    predictions.forEach(match => {
+        const key = `${match.home_team} vs ${match.away_team}`;
+        const ev = bestPicks[key] || {};
+        const row = document.createElement('tr');
+
+        // Color coding for GG probability
+        const ggColor = match.gg_probability >= 75 ? 'green' : match.gg_probability >= 60 ? 'yellow' : 'red';
+        const overColor = match.over25_probability >= 75 ? 'green' : match.over25_probability >= 60 ? 'yellow' : 'red';
+
+        row.innerHTML = `
+            <td>${match.home_team}</td>
+            <td>${match.away_team}</td>
+            <td style="background-color:${ggColor}">${match.gg_probability}%</td>
+            <td style="background-color:${overColor}">${match.over25_probability}%</td>
+            <td>${match.top_correct_scores[0][0]}</td>
+            <td>${ev.expected_value || 'N/A'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Accuracy chart
+    const ctx = document.getElementById('accuracyChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['GG', 'Over 2.5', 'Correct Score'],
+            datasets: [{
+                label: 'Prediction Accuracy (%)',
+                data: [accuracy.gg_accuracy, accuracy.over25_accuracy, accuracy.correct_score_accuracy],
+                backgroundColor: ['green', 'blue', 'orange']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Prediction Accuracy Overview'
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, max: 100 }
+            }
+        }
+    });
+}
+
+loadDashboard();
+</script>
+
+
+<script>
+    // Refresh dashboard every 1 hour (3600000 ms)
+setInterval(() => {
+    loadDashboard();
+    console.log("Dashboard updated automatically");
+}, 3600000); // 1 hour
+
+allPredictions.forEach(match => {
+    const ev = bestPicks[`${match.home_team} vs ${match.away_team}`]?.expected_value || 0;
+    if (match.gg_probability >= 80 && ev >= 1.5) {
+        new Notification(`High Confidence Pick!`, {
+            body: `${match.home_team} vs ${match.away_team} | EV: ${ev}`
+        });
+    }
+});
+
+    let allPredictions = []; // Store API results
+
+async function loadDashboard() {
+    const predRes = await fetch('/api/today-predictions/');
+    allPredictions = await predRes.json();
+
+    const bestRes = await fetch('/api/best-picks/');
+    bestPicks = await bestRes.json();
+
+    const accRes = await fetch('/api/accuracy/');
+    accuracy = await accRes.json();
+
+    displayMatches(allPredictions, bestPicks, accuracy);
+}
+
+function displayMatches(predictions, bestPicks, accuracy) {
+    const tbody = document.querySelector('#matches-table tbody');
+    tbody.innerHTML = ""; // clear table
+
+    predictions.forEach(match => {
+        const key = `${match.home_team} vs ${match.away_team}`;
+        const ev = bestPicks[key] || {};
+        const ggColor = match.gg_probability >= 75 ? 'green' : match.gg_probability >= 60 ? 'yellow' : 'red';
+        const overColor = match.over25_probability >= 75 ? 'green' : match.over25_probability >= 60 ? 'yellow' : 'red';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${match.home_team}</td>
+            <td>${match.away_team}</td>
+            <td style="background-color:${ggColor}">${match.gg_probability}%</td>
+            <td style="background-color:${overColor}">${match.over25_probability}%</td>
+            <td>${match.top_correct_scores[0][0]}</td>
+            <td>${ev.expected_value || 'N/A'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Update chart
+    updateChart(accuracy);
+}
+
+function applyFilters() {
+    const league = document.getElementById('league').value;
+    const date = document.getElementById('match-date').value;
+
+    let filtered = allPredictions;
+    if (league) filtered = filtered.filter(m => m.league === league);
+    if (date) filtered = filtered.filter(m => m.date === date);
+
+    displayMatches(filtered, bestPicks, accuracy);
+}
+
+async function loadData() {
+    const predRes = await fetch('/api/today-predictions/');
+    const predictions = await predRes.json();
+    document.getElementById('predictions').innerText = JSON.stringify(predictions, null, 2);
+
+    const bestRes = await fetch('/api/best-picks/');
+    const best = await bestRes.json();
+    document.getElementById('best-picks').innerText = JSON.stringify(best, null, 2);
+
+    const accRes = await fetch('/api/accuracy/');
+    const accuracy = await accRes.json();
+    document.getElementById('accuracy').innerText = JSON.stringify(accuracy, null, 2);
+}
+
+loadData();
+</script>
+</body>
+</html>
