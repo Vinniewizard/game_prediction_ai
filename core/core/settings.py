@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 DEBUG = False
 
-ALLOWED_HOSTS = ['your-app-name.onrender.com', '127.0.0.1']
+ALLOWED_HOSTS = ['https://game-prediction-ai.onrender.com', '*']
 
 # Static files (CSS, JS, images)
 STATIC_URL = '/static/'
@@ -44,7 +44,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'predictor',
+    'core.predictor',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
